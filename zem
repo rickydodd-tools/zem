@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+# if insufficient number of arguments, then output to stderr
+# and exit
+if [ "$#" -ne 1 ]; then
+    >&2 echo "Incorrect number of arguments."
+    exit 1
+fi
+
+# if no files match the pattern provided by the user,
+# then output to stderr and exit
+if [ -z $( find -name $1 | head -n 1 ) ]; then
+    >&2 echo "No files that match the pattern \"$1\" found."
+    exit 1
+fi
