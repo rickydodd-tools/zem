@@ -1,15 +1,111 @@
 #!/usr/bin/env bash
 
-# if insufficient number of arguments, then output to stderr
-# and exit
-if [ "$#" -ne 1 ]; then
-    >&2 echo "Incorrect number of arguments."
+help () {
+    # display help
+    echo "Zip 'em! (zem) is a CLI tool for quickly zipping files that conform with one or more patterns."
+    echo
+    echo "Syntax: zem [-o <output-filename>|-n <number-of-patterns>|-p <pattern>]"
+    echo "Options:"
+    echo "-o|--output-filename      Specify the filename of the zip file to be created."
+    echo "-n|--number-of-patterns   Specify the number of patterns to match files against."
+    echo "-p|--pattern              Specify the patterns to match files against. Number of patterns must match the argument to -n (default: 1)."
+    echo "-h|--help                 Display the help information."
+    echo "-t|--tldr                 Display a short list of examples."
+}
+
+tldr () {
+    # display tldr
+    echo
+    echo "  - Create a zip file named \"htmls.tar\" that contains all files with the \".html\" extension."
+    echo "  zem -o \"htmls.tar\" -p \"*.html\""
+    echo
+    echo "  - Create a zip file named \"web.tar\" that contains all files with the \".html\" and \".css\" extensions."
+    echo "  zem -o \"web.tar\" -n 2 -p \"*.html\" \"*.css\""
+    echo
+}
+
+patterns=()
+
+# initial comb over arguments to get the number of patterns
+# (default: one pattern)
+number_of_patterns=1
+args=("$@")
+for ((index=0; index < "${#args[@]}"; index++)); do
+    case "${args[index]}" in
+        -n|--number-of-patterns)
+            number_of_patterns="${args[index+1]}"
+            break
+            ;;
+    esac
+done
+
+# destructively iterate over the arguments, setting relevant
+# variables based on options.
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -o|--output-filename)
+            NAME="$2"
+            shift
+            shift
+            ;;
+        -p|--pattern)
+            shift
+            while [ "$number_of_patterns" -gt 0 ]; do
+                patterns+=("$1")
+                number_of_patterns=$((number_of_patterns - 1))
+                shift
+            done
+            ;;
+        -h|--help)
+            help
+            exit 0
+            ;;
+        -t|--tldr)
+            tldr
+            exit 0
+            ;;
+        -n|--number-of-patterns)
+            shift
+            shift
+            ;;
+        *)
+            echo "Unknown argument or malformed command."
+            exit 1
+            ;;
+    esac
+done
+
+# determine the arguments to be fed to find
+find_args=()
+for ((index=0; index < ${#patterns[@]}; index++)); do
+    if [[ "${patterns[index]}" == "${patterns[-1]}" ]]; then
+        find_args+=( "-name" "${patterns[index]}" )
+    else
+        find_args+=( "-name" "${patterns[index]}" "-o" )
+    fi
+done
+
+if [ -z ${NAME+x} ] && [ -z ${patterns+x} ]; then
+    >&2 echo "Specify an output filename and AT LEAST ONE pattern. Use \"zem --help\" for help or \"zem --tldr\" for examples."
     exit 1
 fi
 
-# if no files match the pattern provided by the user,
-# then output to stderr and exit
-if [ -z $( find -name $1 | head -n 1 ) ]; then
-    >&2 echo "No files that match the pattern \"$1\" found."
+if [ -z ${NAME+x} ]; then
+    >&2 echo "Specify an output filename. Use \"zem --help\" for help or \"zem --tldr\" for examples."
     exit 1
 fi
+
+if [ -z ${patterns+x} ]; then
+    >&2 echo "Specify a pattern. Use \"zem --help\" for help or \"zem --tldr\" for examples."
+    exit 1
+fi
+
+# if no files match the patterns provided by the user,
+# then output to stderr and exit
+if [ -z "$( echo "${find_args[@]}" | xargs find . | head -n 1 )" ]; then
+    >&2 echo "No files match any of the patterns provided."
+    exit 1
+fi
+
+echo "${find_args[@]}" | xargs find . | xargs tar zcf "$NAME"
+
