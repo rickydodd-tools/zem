@@ -1,3 +1,5 @@
+![shellcheck workflow](https://github.com/rickydodd-tools/zem/actions/workflows/shellcheck.yml/badge.svg)
+
 # Zip 'em! (zem)
 zem is a tool for quickly and recursively zipping files with specific file extensions.
 
